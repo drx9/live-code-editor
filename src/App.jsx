@@ -5,185 +5,103 @@ import FileManager from "./components/FileManager";
 import GeminiGuide from "./components/GeminiGuide";
 
 function App() {
-  const [code, setCode] = useState(""); 
-  const [installedPackages, setInstalledPackages] = useState([]);
+  const [code, setCode] = useState(localStorage.getItem("savedCode") || ""); 
+  const [installedPackages, setInstalledPackages] = useState(
+    JSON.parse(localStorage.getItem("installedPackages")) || []
+  );
   const [consoleOutput, setConsoleOutput] = useState([]);
   const [isTerminalFocused, setIsTerminalFocused] = useState(false);
-  
-  // Function to handle package installation
-  const handlePackageInstall = (packageName, version) => {
-    // Check if package is already installed
-    if (!installedPackages.some(pkg => pkg.name === packageName)) {
-      setInstalledPackages([...installedPackages, { name: packageName, version }]);
-      // Show success message in console
-      setConsoleOutput(prev => [...prev, {
-        type: 'log',
-        content: `Package ${packageName}@${version} installed successfully`
-      }]);
-    } else {
-      // Show warning message in console
-      setConsoleOutput(prev => [...prev, {
-        type: 'warn',
-        content: `Package ${packageName} is already installed`
-      }]);
-    }
-  };
-  
-  // Function to handle code updates from Gemini
-  const handleCodeUpdate = (updatedCode) => {
-    setCode(updatedCode);
-    // Show success message in console
-    setConsoleOutput(prev => [...prev, {
-      type: 'log',
-      content: 'Code updated with AI suggestions'
-    }]);
-  };
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
 
-  // Function to handle errors
-  const handleError = (error) => {
-    setConsoleOutput(prev => [...prev, {
-      type: 'error',
-      content: `Error: ${error.message || error}`
-    }]);
-  };
-  
-  // Initialize event listeners
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Focus terminal with Ctrl+`
-      if (e.ctrlKey && e.key === '`') {
-        e.preventDefault();
-        setIsTerminalFocused(true);
-      }
-      
-      // Focus editor with Esc
-      if (e.key === 'Escape' && isTerminalFocused) {
-        setIsTerminalFocused(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isTerminalFocused]);
+    document.body.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  // ✅ Toggle theme
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+  };
 
   return (
-    <div style={styles.container}>
-      {/* Status bar */}
-      <div style={styles.statusBar}>
+    <div style={styles.container(theme)}>
+      {/* Status Bar */}
+      <div style={styles.statusBar(theme)}>
         <div style={styles.statusSection}>
           <span style={styles.statusItem}>Line: 1</span>
           <span style={styles.statusItem}>Col: 1</span>
         </div>
         <div style={styles.statusSection}>
-          {installedPackages.length > 0 && (
-            <span style={styles.statusItem}>
-              Packages: {installedPackages.length}
-            </span>
-          )}
-          <span style={styles.statusItem}>React Editor</span>
+          <button style={styles.themeToggle(theme)} onClick={toggleTheme}>
+            {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+          </button>
         </div>
       </div>
-      
+
+      {/* Main Content */}
       <div style={styles.mainContent}>
-        {/* Left: File Manager */}
-        <div style={styles.fileManager}>
-          <FileManager installedPackages={installedPackages} />
+        <div style={styles.fileManager(theme)}>
+          <FileManager theme={theme} installedPackages={installedPackages} />
         </div>
 
-        {/* Center: Code Editor */}
-        <div style={styles.editor}>
-          <CodeEditor 
-            setCode={setCode} 
-            code={code} 
-            onCodeChange={(newCode) => setCode(newCode)}
-          />
+        <div style={styles.editor(theme)}>
+          <CodeEditor theme={theme} setCode={setCode} code={code} onCodeChange={setCode} />
         </div>
 
-        {/* Right: AI Suggestions + Terminal */}
-        <div style={styles.rightPanel}>
-          <GeminiGuide 
-            code={code} 
-            onCodeUpdate={handleCodeUpdate} 
-          />
-          <TerminalComponent 
-            focused={isTerminalFocused}
-            onFocus={() => setIsTerminalFocused(true)}
-            onBlur={() => setIsTerminalFocused(false)}
-            onPackageInstall={handlePackageInstall}
-            onError={handleError}
-            consoleOutput={consoleOutput}
-            setConsoleOutput={setConsoleOutput}
-          />
+        <div style={styles.rightPanel(theme)}>
+          <GeminiGuide theme={theme} code={code} />
+          <TerminalComponent theme={theme} />
         </div>
-      </div>
-      
-      {/* Footer with helpful tips */}
-      <div style={styles.footer}>
-        <span style={styles.footerTip}>Tip: Press Ctrl+` to focus terminal</span>
-        <span style={styles.footerTip}>Tip: Use Gemini AI for code suggestions</span>
       </div>
     </div>
   );
 }
 
-// Styles for the application
+// ✅ Pass `theme` dynamically
 const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#1e1e1e',
-    color: '#f0f0f0',
-    fontFamily: 'Consolas, monospace',
-  },
-  statusBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '4px 8px',
-    backgroundColor: '#007acc',
-    color: 'white',
-    fontSize: '12px',
-  },
-  statusSection: {
-    display: 'flex',
-    gap: '16px',
-  },
-  statusItem: {
-    padding: '0 4px',
-  },
+  container: (theme) => ({
+    display: "flex",
+    flexDirection: "column",
+    height: "100vh",
+    backgroundColor: theme === "dark" ? "#1e1e1e" : "#ffffff",
+    color: theme === "dark" ? "#f0f0f0" : "#000000",
+  }),
+  statusBar: (theme) => ({
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "8px",
+    backgroundColor: theme === "dark" ? "#007acc" : "#d4d4d4",
+    color: theme === "dark" ? "white" : "black",
+  }),
+  themeToggle: (theme) => ({
+    padding: "4px 8px",
+    backgroundColor: theme === "dark" ? "#444" : "#ddd",
+    color: theme === "dark" ? "#fff" : "#000",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+  }),
   mainContent: {
-    display: 'flex',
+    display: "flex",
     flex: 1,
-    overflow: 'hidden',
   },
-  fileManager: {
-    width: '200px',
-    backgroundColor: '#252526',
-    overflowY: 'auto',
-    borderRight: '1px solid #3c3c3c',
-  },
-  editor: {
+  fileManager: (theme) => ({
+    width: "200px",
+    backgroundColor: theme === "dark" ? "#252526" : "#f5f5f5",
+    borderRight: theme === "dark" ? "1px solid #3c3c3c" : "1px solid #ccc",
+  }),
+  editor: (theme) => ({
     flex: 1,
-    backgroundColor: '#1e1e1e',
-  },
-  rightPanel: {
-    width: '300px',
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: '#252526',
-    borderLeft: '1px solid #3c3c3c',
-  },
-  footer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '2px 8px',
-    backgroundColor: '#007acc',
-    color: 'white',
-    fontSize: '11px',
-  },
-  footerTip: {
-    opacity: 0.8,
-  }
+    backgroundColor: theme === "dark" ? "#1e1e1e" : "#ffffff",
+  }),
+  rightPanel: (theme) => ({
+    width: "300px",
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: theme === "dark" ? "#252526" : "#f5f5f5",
+    borderLeft: theme === "dark" ? "1px solid #3c3c3c" : "1px solid #ccc",
+  }),
 };
 
 export default App;

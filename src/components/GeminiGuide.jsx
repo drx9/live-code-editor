@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { GoogleGenerativeAI } from "@google/generative-ai"; // ✅ Import the Gemini SDK
+import axios from "axios"; // ✅ Use Axios instead of Google SDK
 
 const GeminiGuide = ({ code, onCodeUpdate }) => {
   const [suggestions, setSuggestions] = useState("");
@@ -7,11 +7,17 @@ const GeminiGuide = ({ code, onCodeUpdate }) => {
   const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState(null);
 
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // ✅ Load API Key
+  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+
+  // ✅ Debugging: Check if code is received properly
+  useEffect(() => {
+    console.log("📌 Received code:", code);
+  }, [code]);
 
   const generateSuggestions = async () => {
-    if (!code || code.trim().length < 10) {
-      setSuggestions("Add more code to get AI suggestions...");
+    if (!code || typeof code !== "string" || code.trim().length < 5) { // 🔥 Fix: Allow even short code snippets
+      setSuggestions("❌ Error: No valid code detected. Please type more or check if the editor is passing code.");
       return;
     }
 
@@ -19,34 +25,28 @@ const GeminiGuide = ({ code, onCodeUpdate }) => {
     setError(null);
 
     try {
-      const genAI = new GoogleGenerativeAI(API_KEY); // ✅ Initialize API
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      console.log("🚀 Sending request to Gemini AI with code:", code);
 
-      const result = await model.generateContent([
-        { role: "user", parts: [{ text: `Analyze this code and provide suggestions:\n${code}` }] }
-      ]);
-      const response = await result.response;
-      const text = response.text();
+      const response = await axios.post(API_URL, {
+        contents: [{ parts: [{ text: `Analyze this code and provide suggestions:\n${code}` }] }],
+      });
 
-      setSuggestions(text || "No suggestions found.");
+      console.log("✅ API Response:", response.data);
+
+      // ✅ Fix: Extract AI-generated text properly
+      const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No suggestions found.";
+
+      setSuggestions(text);
       setGeneratedCode(code + "\n\n// ✨ AI Suggestion: " + text);
     } catch (err) {
+      console.error("❌ Gemini API Error:", err);
       setError("Failed to get AI suggestions. Please try again.");
-      console.error("Gemini API Error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (code) generateSuggestions();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [code]);
-
-  const handleApplyChanges = () => {
+  const handleReplaceCode = () => {
     if (generatedCode && onCodeUpdate) {
       onCodeUpdate(generatedCode);
     }
@@ -61,12 +61,8 @@ const GeminiGuide = ({ code, onCodeUpdate }) => {
         {isLoading ? (
           <div style={styles.loader}></div>
         ) : (
-          <button 
-            style={styles.refreshButton} 
-            onClick={generateSuggestions}
-            disabled={!code || code.trim().length < 10}
-          >
-            <span role="img" aria-label="refresh">🔄</span>
+          <button style={styles.refreshButton} onClick={generateSuggestions}>
+            <span role="img" aria-label="refresh">🔄</span> Get AI Suggestions
           </button>
         )}
       </div>
@@ -79,30 +75,34 @@ const GeminiGuide = ({ code, onCodeUpdate }) => {
         ) : suggestions ? (
           <>
             <div style={styles.suggestionsSection}>
-              {suggestions.split('\n').map((line, i) => {
-                if (line.startsWith('##')) {
-                  return <h4 key={i} style={styles.sectionTitle}>{line.replace('##', '')}</h4>;
-                } else if (line.startsWith('-')) {
-                  return <p key={i} style={styles.listItem}>{line}</p>;
+              {suggestions.split("\n").map((line, i) => {
+                if (line.startsWith("##")) {
+                  return (
+                    <h4 key={i} style={styles.sectionTitle}>
+                      {line.replace("##", "")}
+                    </h4>
+                  );
+                } else if (line.startsWith("-")) {
+                  return (
+                    <p key={i} style={styles.listItem}>
+                      {line}
+                    </p>
+                  );
                 } else {
-                  return <p key={i} style={styles.paragraph}>{line}</p>;
+                  return (
+                    <p key={i} style={styles.paragraph}>
+                      {line}
+                    </p>
+                  );
                 }
               })}
             </div>
 
             {generatedCode && (
               <div style={styles.actionSection}>
-                <button 
-                  style={styles.applyButton}
-                  onClick={handleApplyChanges}
-                >
-                  Apply AI Suggestions
+                <button style={styles.applyButton} onClick={handleReplaceCode}>
+                  <span role="img" aria-label="apply">✅</span> Replace Code with AI Suggestion
                 </button>
-                <div style={styles.codeDiff}>
-                  <span style={styles.diffInfo}>
-                    <span role="img" aria-label="info">ℹ️</span> AI has generated an improved version of your code
-                  </span>
-                </div>
               </div>
             )}
           </>
@@ -116,6 +116,7 @@ const GeminiGuide = ({ code, onCodeUpdate }) => {
   );
 };
 
+// ✅ Kept all styles unchanged
 const styles = {
   container: {
     display: "flex",
