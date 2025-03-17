@@ -29,4 +29,4 @@ Styling: Custom CSS with dynamic theme support
 ✅ Implement full filesystem persistence (e.g., IndexedDB or backend storage).
 ✅ Enhance terminal with more interactive shell commands.
 
-***Live Link: https://vercel.com/drx9s-projects/live-code-editor/settings/domains***
+***Live Link: https://live-code-editor-khaki-chi.vercel.app/***
